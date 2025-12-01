@@ -19,43 +19,36 @@ jobs:
       - name: Checkout source code
         uses: actions/checkout@v4
 
-      # 1. Setup Node.js
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
 
-      # 2. Setup Java (sin cache de Gradle porque aún no existe)
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
 
-      # 3. Install Dependencies
       - name: Install dependencies
-        run: npm ci
+        run: npm install --legacy-peer-deps
 
-      # 4. Generate Native Code
       - name: Expo Prebuild
         run: npx expo prebuild --platform android --clean
         env:
           EXPO_NO_DOTENV: '1'
           CI: '1'
 
-      # 5. Setup Gradle (después de prebuild)
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v3
         with:
           build-root-directory: android
           cache-read-only: false
 
-      # 6. Make gradlew executable
       - name: Make gradlew executable
         run: chmod +x android/gradlew
 
-      # 7. Build the APK
       - name: Build Android APK
         working-directory: android
         run: |
@@ -66,8 +59,7 @@ jobs:
             -x lint \
             --stacktrace
 
-      # 8. Upload to Firebase
-      - name: Upload Artifact to Firebase App Distribution
+      - name: Upload to Firebase App Distribution
         uses: wzieba/Firebase-Distribution-Github-Action@v1.7.0
         with:
           appId: ${{ secrets.FIREBASE_APP_ID }}
