@@ -13,56 +13,61 @@ jobs:
   build:
     name: Build and Distribute
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     
     steps:
       - name: Checkout source code
         uses: actions/checkout@v4
-      
+
       # 1. Setup Node.js
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
-      
-      # 2. Setup Java
+
+      # 2. Setup Java (sin cache de Gradle porque aún no existe)
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
-          cache: 'gradle'
-      
+
       # 3. Install Dependencies
       - name: Install dependencies
         run: npm ci
-      
-      # 4. Create app.json if missing
-      - name: Ensure app.json exists
-        run: |
-          if [ ! -f app.json ]; then
-            echo "Creating app.json from app.config.js..."
-            npx expo config --type introspect > app.json
-          fi
-      
-      # 5. Generate Native Code
+
+      # 4. Generate Native Code
       - name: Expo Prebuild
-        run: npx expo prebuild --platform android --clean --no-install
+        run: npx expo prebuild --platform android --clean
         env:
           EXPO_NO_DOTENV: '1'
           CI: '1'
-      
+
+      # 5. Setup Gradle (después de prebuild)
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+        with:
+          build-root-directory: android
+          cache-read-only: false
+
       # 6. Make gradlew executable
       - name: Make gradlew executable
         run: chmod +x android/gradlew
-      
+
       # 7. Build the APK
       - name: Build Android APK
         working-directory: android
-        run: ./gradlew assembleDebug --no-daemon --stacktrace
-      
+        run: |
+          ./gradlew assembleDebug \
+            --build-cache \
+            --parallel \
+            --configure-on-demand \
+            -x lint \
+            --stacktrace
+
       # 8. Upload to Firebase
-      - name: Upload to Firebase App Distribution
+      - name: Upload Artifact to Firebase App Distribution
         uses: wzieba/Firebase-Distribution-Github-Action@v1.7.0
         with:
           appId: ${{ secrets.FIREBASE_APP_ID }}
