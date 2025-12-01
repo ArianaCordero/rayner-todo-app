@@ -17,44 +17,52 @@ jobs:
     steps:
       - name: Checkout source code
         uses: actions/checkout@v4
-
-      # 1. Setup Node.js (Required for Expo)
+      
+      # 1. Setup Node.js
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
-
-      # 2. Setup Java (Required for Android build)
+      
+      # 2. Setup Java
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
-
+          cache: 'gradle'
+      
       # 3. Install Dependencies
       - name: Install dependencies
         run: npm ci
-
-      # 4. Generate Native Code (CORREGIDO)
+      
+      # 4. Create app.json if missing
+      - name: Ensure app.json exists
+        run: |
+          if [ ! -f app.json ]; then
+            echo "Creating app.json from app.config.js..."
+            npx expo config --type introspect > app.json
+          fi
+      
+      # 5. Generate Native Code
       - name: Expo Prebuild
-        run: npx expo prebuild --platform android --clean
+        run: npx expo prebuild --platform android --clean --no-install
         env:
-          EXPO_NO_DOTENV: 1
-          CI: 1
-
-      # 5. Make gradlew executable
+          EXPO_NO_DOTENV: '1'
+          CI: '1'
+      
+      # 6. Make gradlew executable
       - name: Make gradlew executable
         run: chmod +x android/gradlew
-
-      # 6. Build the APK
+      
+      # 7. Build the APK
       - name: Build Android APK
-        run: |
-          cd android
-          ./gradlew assembleDebug --no-daemon --stacktrace
-
-      # 7. Upload to Firebase
-      - name: Upload Artifact to Firebase App Distribution
+        working-directory: android
+        run: ./gradlew assembleDebug --no-daemon --stacktrace
+      
+      # 8. Upload to Firebase
+      - name: Upload to Firebase App Distribution
         uses: wzieba/Firebase-Distribution-Github-Action@v1.7.0
         with:
           appId: ${{ secrets.FIREBASE_APP_ID }}
